@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DeepAlpha 关系图谱</title>
+    <title>DeepAlpha SignalGraph</title>
     <link rel="stylesheet" href="./styles.css" />
     <style>
       body {
@@ -39,10 +39,14 @@
       .graph-hero h1 {
         margin: 0;
         color: var(--text);
-        font-size: clamp(2.1rem, 4.6vw, 4.25rem);
-        line-height: 0.9;
+        font-size: clamp(2.15rem, 4.1vw, 3.7rem);
+        line-height: 0.86;
         letter-spacing: -0.03em;
-        text-transform: uppercase;
+      }
+
+      .graph-hero h1 span {
+        display: block;
+        color: var(--blue);
       }
 
       .graph-frame-wrap {
@@ -162,14 +166,14 @@
       </nav>
 
       <header class="graph-hero">
-        <h1>Signal<br />Graph</h1>
+        <h1>Signal<span>Graph</span></h1>
       </header>
 
-      <main class="graph-frame-wrap" aria-label="DeepAlpha 关系图谱服务">
-        <iframe class="graph-frame" id="graphFrame" src="http://localhost:8080/" title="DeepAlpha 关系图谱"></iframe>
+      <main class="graph-frame-wrap" aria-label="DeepAlpha SignalGraph">
+        <iframe class="graph-frame" id="graphFrame" src="./graph_viewer.html" title="DeepAlpha SignalGraph"></iframe>
         <div class="graph-fallback" id="graphFallback">
-          <strong>图谱服务未连接</strong>
-          <code>python3 graph_viewer.py --port 8080</code>
+          <strong>图谱数据未连接</strong>
+          <code>/api/graph</code>
         </div>
       </main>
     </div>
@@ -179,7 +183,7 @@
 
       async function checkGraphService() {
         try {
-          const response = await fetch("http://localhost:8080/api/graph", { cache: "no-store" });
+          const response = await fetch("/api/graph", { cache: "no-store" });
           if (!response.ok) throw new Error("Graph service unavailable");
           await response.json();
           fallback.classList.remove("visible");

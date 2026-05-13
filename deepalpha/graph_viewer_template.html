@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeepAlpha 关系图谱</title>
+  <title>DeepAlpha SignalGraph</title>
   <style>
     * {
       box-sizing: border-box;
@@ -527,7 +527,6 @@
           const dy = event.clientY - state.lastY;
           state.rotationY += dx * 0.006;
           state.rotationX += dy * 0.006;
-          state.rotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.rotationX));
           state.velocityY = dx * 0.00008;
           state.velocityX = dy * 0.00008;
           state.lastX = event.clientX;

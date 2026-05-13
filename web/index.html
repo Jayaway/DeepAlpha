@@ -44,6 +44,16 @@
             </span>
             <span>Graph</span>
           </a>
+          <button class="nav-pill nav-button" type="button" id="installSkillButton">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3v11"></path>
+                <path d="m7 10 5 5 5-5"></path>
+                <path d="M5 19h14"></path>
+              </svg>
+            </span>
+            <span>安装 Skill</span>
+          </button>
           <a class="nav-pill" href="https://github.com/Jayaway/Alpha-Hunter-Framework">
             <span class="nav-icon" aria-hidden="true">
               <svg class="github-icon" viewBox="0 0 24 24">
@@ -93,6 +103,29 @@
           </div>
         </main>
       </section>
+
+      <div class="modal-overlay" id="skillModal" aria-hidden="true">
+        <section class="skill-modal" role="dialog" aria-modal="true" aria-labelledby="skillModalTitle">
+          <button class="modal-close" type="button" id="closeSkillModal" aria-label="关闭安装面板">×</button>
+          <h2 id="skillModalTitle">安装 DeepAlpha Skill</h2>
+
+          <div class="install-section">
+            <div class="install-label">龙虾 / OpenClaw 安装命令：</div>
+            <div class="install-row">
+              <code class="install-cmd">clawhub install deepalpha-market-intel</code>
+              <button class="copy-btn" type="button" data-copy="clawhub install deepalpha-market-intel">复制</button>
+            </div>
+          </div>
+
+          <div class="install-section">
+            <div class="install-label">其他 Agent（Claude Code / Cursor / Codex）：</div>
+            <div class="install-row">
+              <code class="install-cmd">安装 https://github.com/Jayaway/Alpha-Hunter-Framework 并读取 skills/deepalpha-market-intel/SKILL.md</code>
+              <button class="copy-btn" type="button" data-copy="安装 https://github.com/Jayaway/Alpha-Hunter-Framework 并读取 skills/deepalpha-market-intel/SKILL.md">复制</button>
+            </div>
+          </div>
+        </section>
+      </div>
 
       <section class="analysis-screen hidden" id="analysisScreen">
         <header class="topbar">

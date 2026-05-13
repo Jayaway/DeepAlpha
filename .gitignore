@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 .DS_Store
+._*
+*.tgz
+*.tar.gz
 .idea/
 
 # Cookie（含登录凭证，绝对不能提交）

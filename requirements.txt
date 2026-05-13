@@ -1,4 +1,5 @@
 fake_headers>=1.0.2
+fastapi>=0.110.0
 pandas>=2.0.3
 python-dotenv>=1.0.0
 requests>=2.31.0
@@ -7,3 +8,4 @@ webdriver_manager>=4.0.0
 aiohttp>=3.9.0
 curl_cffi>=0.5.0
 playwright>=1.40.0
+uvicorn[standard]>=0.27.0

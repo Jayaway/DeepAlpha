@@ -33,6 +33,8 @@ def build_tasks(decision: dict) -> dict:
     crawl_tasks = decision.get("crawl_tasks", [])
     max_accounts = int(decision.get("accounts_per_round", 5) or 5)
     tweets_per_account = int(decision.get("tweets_per_account", 20) or 20)
+    max_search_tasks = int(decision.get("search_tasks_per_round", 2) or 2)
+    tweets_per_search = int(decision.get("tweets_per_search", 30) or 30)
 
     user_tasks = []
     search_tasks = []
@@ -51,8 +53,8 @@ def build_tasks(decision: dict) -> dict:
             continue
         user_tasks.append({"username": username, "limit": tweets_per_account, "runtime_status": "normal"})
 
-    for task in crawl_tasks[:2]:
-        search_tasks.append({"query": task, "limit": 30})
+    for task in crawl_tasks[:max_search_tasks]:
+        search_tasks.append({"query": task, "limit": tweets_per_search})
 
     return {
         "user_tasks": user_tasks,

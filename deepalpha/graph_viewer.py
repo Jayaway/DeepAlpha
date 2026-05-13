@@ -17,6 +17,7 @@ X 实时情报系统 - 独立关系图谱可视化
 """
 
 import os
+import errno
 import json
 import http.server
 import socketserver
@@ -93,21 +94,29 @@ class GraphViewer:
     def start(self, open_browser: bool = True):
         """启动图谱服务器"""
         handler = create_handler(self.graph_data)
+        url = f"http://localhost:{self.port}"
 
-        with ReusableTCPServer(("", self.port), handler) as httpd:
-            url = f"http://localhost:{self.port}"
-            print(f"\n{'=' * 60}")
-            print(f"  情报关系图谱服务已启动")
-            print(f"  访问地址: {url}")
-            print(f"{'=' * 60}\n")
+        try:
+            with ReusableTCPServer(("", self.port), handler) as httpd:
+                print(f"\n{'=' * 60}")
+                print(f"  情报关系图谱服务已启动")
+                print(f"  访问地址: {url}")
+                print(f"{'=' * 60}\n")
 
-            if open_browser:
-                webbrowser.open(url)
+                if open_browser:
+                    webbrowser.open(url)
 
-            try:
                 httpd.serve_forever()
-            except KeyboardInterrupt:
-                print("\n服务已停止")
+        except KeyboardInterrupt:
+            print("\n服务已停止")
+        except OSError as exc:
+            if exc.errno == errno.EADDRINUSE:
+                print(f"\n端口 {self.port} 已经有图谱服务在运行。")
+                print(f"直接打开: {url}\n")
+                if open_browser:
+                    webbrowser.open(url)
+                return
+            raise
 
 
 def run_viewer(port: int = 8080, graph_file: str = "./graph_data/关系图谱.json"):

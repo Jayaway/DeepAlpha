@@ -1,0 +1,4 @@
+interface:
+  display_name: "DeepAlpha Market Intel"
+  short_description: "Run DeepAlpha market intelligence analysis"
+  default_prompt: "Use $deepalpha-market-intel to analyze whether oil prices may rise today."
