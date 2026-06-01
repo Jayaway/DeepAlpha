@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 from deepalpha.graph_engine import DEFAULT_GRAPH_FILE, generate_graph_data
 from deepalpha.intel_analyzer import analyze_history
 from deepalpha.intel_router_v2 import decide
+from deepalpha.market_snapshot import market_snapshot_payload
+from deepalpha.x_api_store import latest_signals_payload
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -146,6 +148,12 @@ class DeepAlphaHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/graph":
             self._send_json(load_graph())
+            return
+        if path == "/api/signals/latest":
+            self._send_json(latest_signals_payload())
+            return
+        if path == "/api/market/snapshot":
+            self._send_json(market_snapshot_payload())
             return
         if path == "/":
             self.path = "/index.html"

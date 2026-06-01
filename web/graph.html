@@ -4,16 +4,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DeepAlpha SignalGraph</title>
+    <script>
+      (() => {
+        const saved = localStorage.getItem("deepalpha-theme");
+        document.documentElement.dataset.theme = saved === "dark" ? "dark" : "light";
+      })();
+    </script>
     <link rel="stylesheet" href="./styles.css" />
     <style>
       body {
         min-height: 100vh;
         overflow: hidden;
-        background:
-          radial-gradient(circle at 51% 12%, rgba(29, 161, 242, 0.16), transparent 24rem),
-          radial-gradient(circle at 92% 94%, rgba(96, 165, 250, 0.1), transparent 18rem),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.012), transparent 19rem),
-          var(--bg);
+        background: var(--home-bg);
       }
 
       .graph-shell {
@@ -21,8 +23,14 @@
         padding: 0;
       }
 
-      .graph-nav {
+      .home-nav.graph-nav {
         position: fixed;
+        right: 1.5rem;
+        left: auto;
+        width: max-content;
+        max-width: calc(100vw - 2rem);
+        flex-wrap: nowrap;
+        justify-content: flex-end;
       }
 
       .graph-hero {
@@ -78,10 +86,11 @@
         justify-content: space-between;
         gap: 1rem;
         padding: 0.85rem 1rem;
-        border: 1px solid rgba(29, 161, 242, 0.2);
+        border: 1px solid var(--home-card-border);
         border-radius: 0.7rem;
-        background: rgba(8, 10, 12, 0.92);
-        color: #aab2bd;
+        background: color-mix(in srgb, var(--home-card-solid) 88%, transparent);
+        color: var(--muted);
+        box-shadow: var(--home-shadow);
         backdrop-filter: blur(18px);
       }
 
@@ -90,11 +99,11 @@
       }
 
       .graph-fallback strong {
-        color: #f4f5f4;
+        color: var(--text);
       }
 
       .graph-fallback code {
-        color: #9fd8ff;
+        color: var(--blue);
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 0.82rem;
       }
@@ -108,9 +117,16 @@
           padding: 0;
         }
 
-        .graph-nav {
+        .home-nav.graph-nav {
           position: fixed;
-          justify-content: flex-start;
+          top: 1.25rem;
+          right: 1rem;
+          left: auto;
+          width: max-content;
+          max-width: calc(100vw - 2rem);
+          flex-wrap: nowrap;
+          justify-content: flex-end;
+          padding: 0;
         }
 
         .graph-hero {
@@ -163,6 +179,10 @@
           </span>
           <span>Slides</span>
         </a>
+        <button class="theme-toggle" type="button" id="themeToggle" aria-label="切换主题" aria-pressed="false">
+          <span class="theme-toggle-icon" aria-hidden="true"></span>
+          <span class="theme-toggle-text">Light</span>
+        </button>
       </nav>
 
       <header class="graph-hero">
@@ -180,16 +200,65 @@
 
     <script>
       const fallback = document.getElementById("graphFallback");
+      const graphFrame = document.getElementById("graphFrame");
+      const themeToggle = document.querySelector("#themeToggle");
+      const themeStorageKey = "deepalpha-theme";
+
+      function getPreferredTheme() {
+        const saved = localStorage.getItem(themeStorageKey);
+        if (saved === "light" || saved === "dark") return saved;
+        return "light";
+      }
+
+      function applyTheme(theme) {
+        const nextTheme = theme === "dark" ? "dark" : "light";
+        document.documentElement.dataset.theme = nextTheme;
+        if (!themeToggle) return;
+        themeToggle.setAttribute("aria-pressed", String(nextTheme === "dark"));
+        const text = themeToggle.querySelector(".theme-toggle-text");
+        if (text) text.textContent = nextTheme === "dark" ? "Dark" : "Light";
+        graphFrame?.contentWindow?.postMessage({ type: "deepalpha-theme", theme: nextTheme }, "*");
+      }
+
+      applyTheme(getPreferredTheme());
+
+      themeToggle?.addEventListener("click", () => {
+        const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+        const nextTheme = current === "dark" ? "light" : "dark";
+        localStorage.setItem(themeStorageKey, nextTheme);
+        applyTheme(nextTheme);
+      });
+
+      graphFrame?.addEventListener("load", () => {
+        applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+      });
 
       async function checkGraphService() {
         try {
-          const response = await fetch("/api/graph", { cache: "no-store" });
-          if (!response.ok) throw new Error("Graph service unavailable");
-          await response.json();
+          const data = await fetchGraphData();
+          if (!Array.isArray(data.nodes)) throw new Error("Graph data unavailable");
           fallback.classList.remove("visible");
         } catch (_) {
           fallback.classList.add("visible");
         }
+      }
+
+      async function fetchGraphData() {
+        const localUrls = ["../graph_data/关系图谱.json", "./graph_data/关系图谱.json"];
+        const urls = location.hostname === "127.0.0.1" || location.hostname === "localhost" || location.protocol === "file:"
+          ? [...localUrls, "/api/graph"]
+          : ["/api/graph", ...localUrls];
+        let lastError = null;
+        for (const url of urls) {
+          try {
+            const response = await fetch(url, { cache: "no-store" });
+            if (!response.ok) throw new Error(`${url} ${response.status}`);
+            return await response.json();
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("Graph data unavailable");
       }
 
       checkGraphService();

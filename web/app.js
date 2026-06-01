@@ -8,12 +8,92 @@ const chipGrid = document.querySelector("#chipGrid");
 const signalRows = document.querySelector("#signalRows");
 const eventGrid = document.querySelector("#eventGrid");
 const modeText = document.querySelector("#modeText");
+const homeRawXFeed = document.querySelector("#homeRawXFeed");
+const marketSnapshotGrid = document.querySelector("#marketSnapshotGrid");
+const marketSnapshotStatus = document.querySelector("#marketSnapshotStatus");
+const marketSnapshotSource = document.querySelector("#marketSnapshotSource");
+const themeToggle = document.querySelector("#themeToggle");
 const installSkillButton = document.querySelector("#installSkillButton");
 const skillModal = document.querySelector("#skillModal");
 const closeSkillModal = document.querySelector("#closeSkillModal");
+const thinkingPanel = document.querySelector("#thinkingPanel");
 const defaultRemoteApi = "https://deepalpha.cloud";
 const apiParam = new URLSearchParams(window.location.search).get("api");
 const apiBase = apiParam || (location.protocol === "file:" ? defaultRemoteApi : "");
+const themeStorageKey = "deepalpha-theme";
+const goldVerifiedHandles = new Set([
+  "@barchart",
+  "@bloomberg",
+  "@cmegroup",
+  "@cnbc",
+  "@defenceu",
+  "@eia",
+  "@eiagov",
+  "@energyintel",
+  "@federalreserve",
+  "@financialtimes",
+  "@goldmansachs",
+  "@idf",
+  "@imfnews",
+  "@jpmorgan",
+  "@ksmofaen",
+  "@middleeasteye",
+  "@oilandenergy",
+  "@opec",
+  "@opecsecretariat",
+  "@pimco",
+  "@reuters",
+  "@theeconomist",
+  "@thestudyofwar",
+  "@wsj",
+]);
+
+const mockRawXFeed = [
+  {
+    username: "Reuters",
+    handle: "@Reuters",
+    postedTime: "2m",
+    initials: "R",
+    content: "BREAKING: Iran says it will not limit uranium enrichment despite calls from European powers to curb nuclear program.",
+    media: "含图片",
+  },
+  {
+    username: "Javier Blas",
+    handle: "@JavierBlas",
+    postedTime: "7m",
+    initials: "JB",
+    content: "Crude tankers are leaving the Middle East at the fastest pace since June as traders eye rising geopolitical risk premium.",
+  },
+  {
+    username: "TankerTrackers.com",
+    handle: "@TankerTrackers",
+    postedTime: "12m",
+    initials: "TT",
+    content: "VLCC Suezmax activity out of Basrah has increased 18% WoW. Asia-bound flows remain strong.",
+  },
+  {
+    username: "Energy Intel",
+    handle: "@EnergyIntel",
+    postedTime: "18m",
+    initials: "EI",
+    content: "US considering secondary sanctions on buyers of Iranian oil as talks stall. Announcement possible this week.",
+    media: "含图片",
+  },
+  {
+    username: "OPEC",
+    handle: "@OPECSecretariat",
+    postedTime: "25m",
+    initials: "O",
+    content: "OPEC+ Joint Ministerial Monitoring Committee (JMMC) will meet on June 3, 2025.",
+  },
+  {
+    username: "EIA",
+    handle: "@EIAgov",
+    postedTime: "31m",
+    initials: "EIA",
+    content: "US crude inventories -2.5 million bbl to 457.1 million bbl for the week ending May 23.",
+  },
+];
 
 function byId(id) {
   return document.getElementById(id);
@@ -46,6 +126,42 @@ function formatPercent(value) {
   return `${Math.round(num * 100)}%`;
 }
 
+function formatRelativeTime(value) {
+  if (!value) return "时间未知";
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return "时间未知";
+  const diffMs = Date.now() - time;
+  const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
+  if (diffMinutes < 1) return "刚刚";
+  if (diffMinutes < 60) return `${diffMinutes}m`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d`;
+}
+
+function initialsFromSignal(signal) {
+  const name = String(signal.username || signal.handle || "X").replace(/^@/, "").trim();
+  if (!name) return "X";
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length > 1) return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  return name.slice(0, 3).toUpperCase();
+}
+
+function avatarPathFromHandle(handle) {
+  const normalized = String(handle || "").replace(/^@/, "").trim().toLowerCase();
+  if (!normalized) return "";
+  return `./assets/x-avatars/${encodeURIComponent(normalized)}.jpg`;
+}
+
+function verificationTypeFromSignal(signal) {
+  const rawType = String(signal.verified_type || signal.raw_json?.user?.verified_type || "").toLowerCase();
+  if (rawType === "business" || rawType === "government") return "yellow";
+  const handle = String(signal.handle || "").toLowerCase();
+  if (goldVerifiedHandles.has(handle)) return "yellow";
+  return "blue";
+}
+
 function graphCounts(graph, stats) {
   const nodes = graph?.node_count ?? graph?.nodes?.length ?? stats?.graph_nodes ?? 0;
   const edges = graph?.edge_count ?? graph?.edges?.length ?? stats?.graph_edges ?? 0;
@@ -61,6 +177,8 @@ function statusLabel(mode) {
 }
 
 function setLoading(query) {
+  analysisScreen.classList.add("is-loading");
+  if (thinkingPanel) thinkingPanel.removeAttribute("hidden");
   queryInput.value = query;
   byId("reportTitle").textContent = `${query}：DeepAlpha 正在分析`;
   byId("coreVariable").textContent = "正在理解问题";
@@ -81,6 +199,8 @@ function setLoading(query) {
 }
 
 function setError(query, message) {
+  analysisScreen.classList.remove("is-loading");
+  if (thinkingPanel) thinkingPanel.setAttribute("hidden", "");
   byId("reportTitle").textContent = `${query}：分析请求失败`;
   byId("leadText").textContent = message;
   byId("directionText").textContent = "无法生成";
@@ -111,6 +231,8 @@ async function fetchAnalysis(query) {
 }
 
 function renderAnalysis(data) {
+  analysisScreen.classList.remove("is-loading");
+  if (thinkingPanel) thinkingPanel.setAttribute("hidden", "");
   const plan = data.plan || {};
   const stats = data.stats || {};
   const report = data.report || {};
@@ -251,6 +373,160 @@ function closeSkillModalPanel() {
   skillModal.setAttribute("aria-hidden", "true");
 }
 
+function normalizeHomeFeedItem(item) {
+  return {
+    username: item.username || String(item.handle || "X").replace(/^@/, "") || "X",
+    handle: item.handle || "@unknown",
+    postedTime: item.postedTime || formatRelativeTime(item.posted_at || item.fetched_at),
+    initials: item.initials || initialsFromSignal(item),
+    avatar: item.avatar || avatarPathFromHandle(item.handle),
+    verifiedType: item.verifiedType || verificationTypeFromSignal(item),
+    content: item.content || "暂无正文。",
+    media: item.media || "",
+  };
+}
+
+function renderHomeRawFeed(items = mockRawXFeed) {
+  if (!homeRawXFeed) return;
+  const feedItems = items.length ? items.map(normalizeHomeFeedItem) : mockRawXFeed;
+  homeRawXFeed.innerHTML = feedItems
+    .map(
+      (item) => `
+        <article class="raw-feed-item">
+          <div class="raw-avatar">
+            ${item.avatar ? `<img src="${escapeHtml(item.avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />` : ""}
+            <span>${escapeHtml(item.initials)}</span>
+          </div>
+          <div class="raw-feed-body">
+            <div class="raw-meta">
+              <strong>${escapeHtml(item.username)}</strong>
+              <span class="verified-badge verified-${escapeHtml(item.verifiedType)}" aria-label="${item.verifiedType === "yellow" ? "gold verified" : "verified"}"></span>
+              <span>${escapeHtml(item.handle)}</span>
+              <time>${escapeHtml(item.postedTime)}</time>
+            </div>
+            <p>${escapeHtml(item.content)}</p>
+            ${item.media ? `<span class="media-tag">${escapeHtml(item.media)}</span>` : ""}
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+async function loadHomeRawFeed() {
+  renderHomeRawFeed();
+  try {
+    const response = await fetch(`${apiBase}/api/signals/latest?limit=8&asset=oil`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (Array.isArray(data.signals) && data.signals.length) {
+      renderHomeRawFeed(data.signals);
+    }
+  } catch (error) {
+    // Keep the curated fallback feed when the local API is not available.
+  }
+}
+
+function formatMarketValue(item) {
+  if (item.value === null || item.value === undefined || Number.isNaN(Number(item.value))) return "--";
+  const decimals = Number.isInteger(item.decimals) ? item.decimals : 2;
+  return `${item.prefix || ""}${Number(item.value).toFixed(decimals)}`;
+}
+
+function formatMarketChange(item) {
+  if (item.change_pct === null || item.change_pct === undefined || Number.isNaN(Number(item.change_pct))) return "暂无变化";
+  const pct = Number(item.change_pct);
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toFixed(2)}%`;
+}
+
+function formatSnapshotTime(value) {
+  if (!value) return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function renderMarketSnapshot(data) {
+  if (!marketSnapshotGrid) return;
+  const items = Array.isArray(data?.items) ? data.items : [];
+  if (!items.length) {
+    marketSnapshotGrid.innerHTML = `<div><span>行情</span><strong>--</strong><small class="flat">暂无数据</small></div>`;
+    if (marketSnapshotStatus) marketSnapshotStatus.textContent = "行情源暂不可用";
+    if (marketSnapshotSource) marketSnapshotSource.textContent = "来源：行情接口未返回数据";
+    return;
+  }
+
+  marketSnapshotGrid.innerHTML = items
+    .map((item) => {
+      const direction = item.direction === "up" || item.direction === "down" ? item.direction : "flat";
+      return `
+        <div>
+          <span>${escapeHtml(item.label || item.symbol || "行情")}</span>
+          <strong>${escapeHtml(formatMarketValue(item))}</strong>
+          <small class="${direction}">${escapeHtml(formatMarketChange(item))}</small>
+        </div>
+      `;
+    })
+    .join("");
+
+  const status = data.ok ? `更新 ${formatSnapshotTime(data.updated_at)}` : "行情源暂不可用";
+  if (marketSnapshotStatus) marketSnapshotStatus.textContent = status;
+  if (marketSnapshotSource) {
+    const source = data.source_label || data.source || "market data";
+    const note = data.cached ? "缓存" : "延迟行情";
+    marketSnapshotSource.textContent = `来源：${source} · ${note} · 约 ${data.refresh_seconds || 60}s 刷新`;
+  }
+}
+
+async function loadMarketSnapshot() {
+  if (!marketSnapshotGrid) return;
+  try {
+    const response = await fetch(`${apiBase}/api/market/snapshot`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    renderMarketSnapshot(data);
+  } catch (error) {
+    renderMarketSnapshot({ ok: false, items: [] });
+  }
+}
+
+function getPreferredTheme() {
+  const saved = localStorage.getItem(themeStorageKey);
+  if (saved === "light" || saved === "dark") return saved;
+  return "light";
+}
+
+function applyTheme(theme) {
+  const nextTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = nextTheme;
+  if (!themeToggle) return;
+  themeToggle.setAttribute("aria-pressed", String(nextTheme === "dark"));
+  const text = themeToggle.querySelector(".theme-toggle-text");
+  if (text) text.textContent = nextTheme === "dark" ? "Dark" : "Light";
+}
+
+function bindThemeToggle() {
+  applyTheme(getPreferredTheme());
+  if (!themeToggle) return;
+  themeToggle.addEventListener("click", () => {
+    const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const nextTheme = current === "dark" ? "light" : "dark";
+    localStorage.setItem(themeStorageKey, nextTheme);
+    applyTheme(nextTheme);
+  });
+}
+
+function handleHomeSearch() {
+  const button = homeForm?.querySelector("button[type='submit']");
+  if (!button) return;
+  const original = button.innerHTML;
+  button.innerHTML = "<span>已就绪</span>";
+  window.setTimeout(() => {
+    button.innerHTML = original;
+  }, 1200);
+}
+
 async function copyText(text) {
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
@@ -300,8 +576,14 @@ function bindSkillModal() {
   });
 }
 
+bindThemeToggle();
+loadHomeRawFeed();
+loadMarketSnapshot();
+window.setInterval(loadMarketSnapshot, 60000);
+
 homeForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  handleHomeSearch();
   showAnalysis(homeQuery.value);
 });
 

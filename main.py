@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 
 from deepalpha_adapter import DISCLAIMER, analyze_market_query
 from deepalpha.graph_engine import DEFAULT_GRAPH_FILE
+from deepalpha.market_snapshot import market_snapshot_payload
+from deepalpha.x_api_store import latest_signals_payload
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -57,6 +59,16 @@ def api_graph() -> dict:
         return json.loads(graph_path.read_text(encoding="utf-8"))
     except Exception as exc:
         return {"query": None, "generated": None, "nodes": [], "edges": [], "error": str(exc)}
+
+
+@app.get("/api/signals/latest")
+def api_latest_signals(limit: int = 80, asset: str = "oil") -> dict:
+    return latest_signals_payload(limit=limit, asset=asset)
+
+
+@app.get("/api/market/snapshot")
+def api_market_snapshot() -> dict:
+    return market_snapshot_payload()
 
 
 @app.post("/api/analyze")

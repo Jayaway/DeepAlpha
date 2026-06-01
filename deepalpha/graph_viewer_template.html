@@ -4,9 +4,52 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DeepAlpha SignalGraph</title>
+  <script>
+    (() => {
+      const saved = localStorage.getItem("deepalpha-theme");
+      document.documentElement.dataset.theme = saved === "dark" ? "dark" : "light";
+    })();
+  </script>
   <style>
     * {
       box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --graph-bg:
+        radial-gradient(circle at 51% 12%, rgba(29, 161, 242, 0.16), transparent 24rem),
+        radial-gradient(circle at 92% 94%, rgba(96, 165, 250, 0.1), transparent 18rem),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.012), transparent 19rem),
+        #070809;
+      --graph-text: #f2f2f2;
+      --graph-muted: rgba(255, 255, 255, 0.45);
+      --graph-dim: rgba(255, 255, 255, 0.28);
+      --graph-faint: rgba(255, 255, 255, 0.25);
+      --graph-panel: rgba(18, 22, 28, 0.82);
+      --graph-panel-border: rgba(255, 255, 255, 0.08);
+      --graph-button-bg: rgba(255, 255, 255, 0.035);
+      --graph-button-border: rgba(255, 255, 255, 0.08);
+      --graph-blue: #60a5fa;
+      --graph-shadow: 0 1rem 2.8rem rgba(0, 0, 0, 0.22);
+    }
+
+    html[data-theme="light"] {
+      color-scheme: light;
+      --graph-bg:
+        radial-gradient(circle at 51% 12%, rgba(25, 118, 230, 0.13), transparent 24rem),
+        radial-gradient(circle at 92% 94%, rgba(14, 165, 233, 0.1), transparent 18rem),
+        linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #eef7ff 100%);
+      --graph-text: #0d1726;
+      --graph-muted: rgba(13, 23, 38, 0.56);
+      --graph-dim: rgba(13, 23, 38, 0.48);
+      --graph-faint: rgba(13, 23, 38, 0.42);
+      --graph-panel: rgba(255, 255, 255, 0.82);
+      --graph-panel-border: rgba(35, 105, 190, 0.13);
+      --graph-button-bg: rgba(255, 255, 255, 0.78);
+      --graph-button-border: rgba(35, 105, 190, 0.13);
+      --graph-blue: #1976e6;
+      --graph-shadow: 0 1rem 2.6rem rgba(28, 72, 123, 0.14);
     }
 
     html,
@@ -18,12 +61,8 @@
 
     body {
       overflow: hidden;
-      background:
-        radial-gradient(circle at 51% 12%, rgba(29, 161, 242, 0.16), transparent 24rem),
-        radial-gradient(circle at 92% 94%, rgba(96, 165, 250, 0.1), transparent 18rem),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.012), transparent 19rem),
-        #070809;
-      color: #f2f2f2;
+      background: var(--graph-bg);
+      color: var(--graph-text);
       font-family:
         Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -34,7 +73,7 @@
     .hint {
       position: fixed;
       z-index: 4;
-      color: rgba(255, 255, 255, 0.45);
+      color: var(--graph-muted);
       user-select: none;
     }
 
@@ -42,23 +81,36 @@
       right: 1.1rem;
       top: 5.7rem;
       display: grid;
-      gap: 1.2rem;
-      font-size: 1.7rem;
+      gap: 0.72rem;
     }
 
     .tool-button {
-      width: 2rem;
-      height: 2rem;
-      border: 0;
-      background: transparent;
+      display: grid;
+      place-items: center;
+      width: 2.35rem;
+      height: 2.35rem;
+      border: 1px solid var(--graph-button-border);
+      border-radius: 0.7rem;
+      background: var(--graph-button-bg);
       color: inherit;
       cursor: pointer;
-      font: inherit;
-      line-height: 1;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--graph-shadow);
+    }
+
+    .tool-button svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
     }
 
     .tool-button:hover {
-      color: rgba(96, 165, 250, 0.92);
+      border-color: color-mix(in srgb, var(--graph-blue) 42%, transparent);
+      color: var(--graph-blue);
     }
 
     #graphCanvas {
@@ -75,14 +127,14 @@
     .graph-status {
       right: 1.1rem;
       bottom: 1rem;
-      color: rgba(255, 255, 255, 0.28);
+      color: var(--graph-dim);
       font-size: 0.74rem;
     }
 
     .hint {
       left: 1.1rem;
       bottom: 1rem;
-      color: rgba(255, 255, 255, 0.25);
+      color: var(--graph-faint);
       font-size: 0.74rem;
     }
 
@@ -92,11 +144,11 @@
       display: none;
       max-width: 18rem;
       padding: 0.52rem 0.65rem;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--graph-panel-border);
       border-radius: 0.55rem;
-      background: rgba(28, 28, 28, 0.86);
-      box-shadow: 0 1rem 2.8rem rgba(0, 0, 0, 0.22);
-      color: rgba(255, 255, 255, 0.9);
+      background: var(--graph-panel);
+      box-shadow: var(--graph-shadow);
+      color: var(--graph-text);
       font-size: 0.78rem;
       line-height: 1.5;
       pointer-events: none;
@@ -106,12 +158,40 @@
     .tooltip b {
       display: block;
       margin-bottom: 0.12rem;
-      color: #fff;
+      color: var(--graph-text);
       font-size: 0.85rem;
     }
 
     .tooltip span {
-      color: rgba(255, 255, 255, 0.52);
+      color: var(--graph-muted);
+    }
+
+    .graph-empty {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 3;
+      width: min(28rem, calc(100vw - 2rem));
+      padding: 1rem 1.1rem;
+      transform: translate(-50%, -50%);
+      border: 1px solid var(--graph-panel-border);
+      border-radius: 0.9rem;
+      background: var(--graph-panel);
+      box-shadow: var(--graph-shadow);
+      color: var(--graph-text);
+      backdrop-filter: blur(18px);
+    }
+
+    .graph-empty strong {
+      display: block;
+      margin-bottom: 0.36rem;
+      font-size: 0.95rem;
+    }
+
+    .graph-empty span {
+      color: var(--graph-muted);
+      font-size: 0.78rem;
+      line-height: 1.55;
     }
 
     @media (max-width: 720px) {
@@ -124,11 +204,27 @@
 </head>
 <body>
   <div class="tool-rail" aria-hidden="true">
-    <button class="tool-button" type="button" id="resetButton" title="重置视图">⚙</button>
-    <button class="tool-button" type="button" id="spinButton" title="自动旋转">⟳</button>
+    <button class="tool-button" type="button" id="resetButton" title="重置视图">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+        <path d="M3 4v5h5"></path>
+      </svg>
+    </button>
+    <button class="tool-button" type="button" id="spinButton" title="自动旋转">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3a9 9 0 0 1 8.5 6"></path>
+        <path d="M20 4v5h-5"></path>
+        <path d="M12 21a9 9 0 0 1-8.5-6"></path>
+        <path d="M4 20v-5h5"></path>
+      </svg>
+    </button>
   </div>
   <canvas id="graphCanvas"></canvas>
   <div class="tooltip" id="tooltip"></div>
+  <div class="graph-empty" id="emptyState" hidden>
+    <strong>图谱数据未连接</strong>
+    <span>未找到 graph_data/关系图谱.json，也没有可用的 /api/graph。连接数据后会自动渲染关系球体。</span>
+  </div>
   <div class="hint">拖拽旋转球体 · 滚轮缩放 · 点击聚焦</div>
   <div class="graph-status" id="statusText">加载中</div>
 
@@ -136,6 +232,7 @@
     const canvas = document.querySelector("#graphCanvas");
     const ctx = canvas.getContext("2d");
     const tooltip = document.querySelector("#tooltip");
+    const emptyState = document.querySelector("#emptyState");
     const statusText = document.querySelector("#statusText");
     const resetButton = document.querySelector("#resetButton");
     const spinButton = document.querySelector("#spinButton");
@@ -172,6 +269,47 @@
       person: "#4e93c5",
       other: "#4e93c5",
     };
+
+    const palettes = {
+      dark: {
+        bg: "#070809",
+        upperGlow: "rgba(29,161,242,0.16)",
+        lowerGlow: "rgba(96,165,250,0.1)",
+        edge: "rgba(160,170,178,__alpha__)",
+        edgeActive: "rgba(140,185,220,__alpha__)",
+        label: "rgba(205,205,205,0.92)",
+        eventLabel: "#de706c",
+        activeStroke: "rgba(255,255,255,0.42)",
+        hoverStroke: "rgba(96,165,250,0.45)",
+      },
+      light: {
+        bg: "#f7fbff",
+        upperGlow: "rgba(25,118,230,0.13)",
+        lowerGlow: "rgba(14,165,233,0.1)",
+        edge: "rgba(70,88,110,__alpha__)",
+        edgeActive: "rgba(25,96,158,__alpha__)",
+        label: "rgba(31,46,67,0.86)",
+        eventLabel: "#c2413d",
+        activeStroke: "rgba(25,118,230,0.42)",
+        hoverStroke: "rgba(25,118,230,0.46)",
+      },
+    };
+
+    function graphTheme() {
+      return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    }
+
+    function graphPalette() {
+      return palettes[graphTheme()];
+    }
+
+    function themedColor(template, alpha) {
+      return template.replace("__alpha__", String(alpha));
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
+    }
 
     function resize() {
       const ratio = window.devicePixelRatio || 1;
@@ -313,6 +451,7 @@
 
       state.edges = topEdges;
       state.nodeByKey = new Map(state.nodes.map((node) => [node.key, node]));
+      emptyState.hidden = true;
       statusText.textContent = `${state.nodes.length} 节点 · ${state.edges.length} 关系`;
     }
 
@@ -341,7 +480,8 @@
     }
 
     function drawBackground() {
-      ctx.fillStyle = "#070809";
+      const palette = graphPalette();
+      ctx.fillStyle = palette.bg;
       ctx.fillRect(0, 0, state.width, state.height);
 
       const upperGlow = ctx.createRadialGradient(
@@ -352,7 +492,7 @@
         state.height * 0.12,
         Math.min(state.width, state.height) * 0.55,
       );
-      upperGlow.addColorStop(0, "rgba(29,161,242,0.16)");
+      upperGlow.addColorStop(0, palette.upperGlow);
       upperGlow.addColorStop(1, "rgba(29,161,242,0)");
       ctx.fillStyle = upperGlow;
       ctx.fillRect(0, 0, state.width, state.height);
@@ -365,7 +505,7 @@
         state.height * 0.94,
         Math.min(state.width, state.height) * 0.42,
       );
-      lowerGlow.addColorStop(0, "rgba(96,165,250,0.1)");
+      lowerGlow.addColorStop(0, palette.lowerGlow);
       lowerGlow.addColorStop(1, "rgba(96,165,250,0)");
       ctx.fillStyle = lowerGlow;
       ctx.fillRect(0, 0, state.width, state.height);
@@ -379,6 +519,7 @@
       });
 
       for (const edge of sorted) {
+        const palette = graphPalette();
         const source = state.nodeByKey.get(edge.source);
         const target = state.nodeByKey.get(edge.target);
         if (!source || !target) continue;
@@ -389,7 +530,7 @@
         ctx.beginPath();
         ctx.moveTo(source.screenX, source.screenY);
         ctx.lineTo(target.screenX, target.screenY);
-        ctx.strokeStyle = active ? `rgba(140,185,220,${alpha})` : `rgba(160,170,178,${alpha})`;
+        ctx.strokeStyle = active ? themedColor(palette.edgeActive, alpha) : themedColor(palette.edge, alpha);
         ctx.lineWidth = active ? 1.1 : Math.max(0.42, Math.min(1.1, 0.35 + edge.weight * 0.025));
         ctx.stroke();
       }
@@ -406,6 +547,7 @@
     function drawNodes() {
       const nodes = [...state.nodes].sort((a, b) => a.screenZ - b.screenZ);
       for (const node of nodes) {
+        const palette = graphPalette();
         const front = (node.screenZ + 1) / 2;
         const connected = isConnected(node);
         const active = state.selected && node.key === state.selected.key;
@@ -422,7 +564,7 @@
         if (active || hover) {
           ctx.beginPath();
           ctx.arc(node.screenX, node.screenY, size + 5, 0, Math.PI * 2);
-          ctx.strokeStyle = active ? "rgba(255,255,255,0.42)" : "rgba(96,165,250,0.45)";
+          ctx.strokeStyle = active ? palette.activeStroke : palette.hoverStroke;
           ctx.lineWidth = 1.2;
           ctx.stroke();
         }
@@ -439,13 +581,14 @@
       ctx.font = "12px Inter, system-ui, -apple-system, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      const palette = graphPalette();
 
       for (const node of important) {
         const active = state.selected && node.key === state.selected.key;
         const connected = isConnected(node);
         const alpha = active ? 0.85 : connected ? node.labelAlpha * (0.75 + node.screenZ * 0.35) : 0.05;
         ctx.globalAlpha = Math.max(0.035, Math.min(0.75, alpha));
-        ctx.fillStyle = node.type === "event" ? "#de706c" : "rgba(205,205,205,0.92)";
+        ctx.fillStyle = node.type === "event" ? palette.eventLabel : palette.label;
         ctx.fillText(node.label, node.screenX, node.screenY + 18);
       }
 
@@ -554,19 +697,44 @@
       spinButton.addEventListener("click", () => {
         state.autoSpin = !state.autoSpin;
         state.velocityY = state.autoSpin ? 0.0022 : 0;
-        spinButton.style.color = state.autoSpin ? "rgba(96,165,250,0.92)" : "";
+        spinButton.style.color = state.autoSpin ? "var(--graph-blue)" : "";
       });
     }
 
     async function loadGraph() {
       try {
-        const response = await fetch("/api/graph", { cache: "no-store" });
-        if (!response.ok) throw new Error("graph api failed");
-        const data = await response.json();
+        const data = await fetchGraphData();
         mergeGraph(data);
       } catch (error) {
+        emptyState.hidden = false;
         statusText.textContent = "图谱加载失败";
       }
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.data?.type === "deepalpha-theme") applyTheme(event.data.theme);
+    });
+
+    window.addEventListener("storage", (event) => {
+      if (event.key === "deepalpha-theme") applyTheme(event.newValue);
+    });
+
+    async function fetchGraphData() {
+      const localUrls = ["../graph_data/关系图谱.json", "./graph_data/关系图谱.json"];
+      const urls = location.hostname === "127.0.0.1" || location.hostname === "localhost" || location.protocol === "file:"
+        ? [...localUrls, "/api/graph"]
+        : ["/api/graph", ...localUrls];
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) throw new Error(`${url} ${response.status}`);
+          return await response.json();
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("graph api failed");
     }
 
     resize();

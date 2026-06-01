@@ -177,6 +177,11 @@ def judge_signal(tweet: dict, asset: str = None) -> dict:
     if not content:
         return _empty_signal()
 
+    if asset == "oil":
+        from deepalpha.oil_factor_rules import analyze_oil_signal
+
+        return analyze_oil_signal(tweet)
+
     # 扫描所有方向信号
     best_signal = None
     best_score = 0
@@ -343,6 +348,7 @@ def judge_all_signals(tweets: list, asset: str = None) -> dict:
         result = judge_signal(tweet, asset)
         result["tweet_handle"] = tweet.get("handle", "")
         result["tweet_content"] = tweet.get("content", "")[:100]
+        result["tweet_content_full"] = tweet.get("content", "")
         details.append(result)
 
         if result["direction"]:
@@ -369,7 +375,7 @@ def judge_all_signals(tweets: list, asset: str = None) -> dict:
         reverse=True,
     )[:5]
 
-    return {
+    judgment = {
         "market_direction": market_direction,
         "market_direction_label": market_direction_label,
         "aggregate_confidence": aggregate_confidence,
@@ -378,6 +384,15 @@ def judge_all_signals(tweets: list, asset: str = None) -> dict:
         "top_signals": top_signals,
         "details": details,
     }
+    if asset == "oil":
+        from deepalpha.oil_factor_rules import aggregate_oil_judgment
+
+        oil_judgment = aggregate_oil_judgment(tweets, details)
+        judgment.update(oil_judgment)
+        if not judgment.get("market_direction_label") and signal_counts:
+            judgment["market_direction"] = market_direction
+            judgment["market_direction_label"] = market_direction_label
+    return judgment
 
 
 # ============================================================
@@ -410,6 +425,11 @@ def print_signal_report(judgment: dict, asset: str = None):
 
     print(f"  平均影响等级: {avg_impact}/5")
 
+    if judgment.get("total_score") is not None:
+        print(f"  原油规则总分: {judgment['total_score']}")
+    if judgment.get("war_escalation_score") is not None:
+        print(f"  战争升级分: {judgment['war_escalation_score']}/100")
+
     if signal_counts:
         print(f"\n  信号分布:")
         for sig, count in sorted(signal_counts.items(), key=lambda x: x[1], reverse=True):
@@ -424,6 +444,16 @@ def print_signal_report(judgment: dict, asset: str = None):
             print(f"    {i}. [{s['direction_label']}] 影响{s['impact_level']}级 置信{s['confidence']}")
             print(f"       @{s['tweet_handle']}: {s['tweet_content'][:60]}...")
             print(f"       原因: {s['impact_reason']}")
+
+    if judgment.get("top_factors"):
+        print(f"\n  主要原油因子:")
+        for item in judgment["top_factors"][:5]:
+            print(f"    {item['factor']}: {item['score']:+.2f}")
+
+    if judgment.get("conflict_notes"):
+        print(f"\n  冲突消解:")
+        for note in judgment["conflict_notes"]:
+            print(f"    - {note}")
 
     print("=" * 60)
 

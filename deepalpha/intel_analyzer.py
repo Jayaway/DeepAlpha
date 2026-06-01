@@ -148,6 +148,21 @@ def build_summary_lines(query: str, decision: dict, tweets: List[dict], judgment
         signal_text = "；".join([f"{name} {count}条" for name, count in judgment["signal_count"].items()])
         lines.append(f"信号分布：{signal_text}。")
 
+    if judgment.get("total_score") is not None:
+        lines.append(
+            f"原油规则总分 {judgment['total_score']:+.2f}；战争升级分 {judgment.get('war_escalation_score', 0)}/100。"
+        )
+
+    if judgment.get("top_factors"):
+        factor_text = "；".join(
+            f"{item['factor']} {item['score']:+.1f}"
+            for item in judgment["top_factors"][:4]
+        )
+        lines.append(f"主要驱动因子：{factor_text}。")
+
+    for note in judgment.get("conflict_notes") or []:
+        lines.append(f"冲突消解：{note}")
+
     if top_tweets:
         lines.append("关键依据：")
         for tweet in top_tweets[:3]:

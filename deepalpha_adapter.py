@@ -55,7 +55,17 @@ def analyze_market_query(query: str, mode: str | None = None, timeout_seconds: i
         return _failure_response("", "query 不能为空")
 
     options = _options_from_env(mode=mode, timeout_seconds=timeout_seconds)
-    return _run_with_timeout(clean_query, options)
+    # The pipeline chdir's into the project root (relative paths like
+    # ./抓取的信息/ depend on it). Restore the caller's cwd afterwards so using
+    # this adapter as a library does not silently move the host process.
+    original_cwd = os.getcwd()
+    try:
+        return _run_with_timeout(clean_query, options)
+    finally:
+        try:
+            os.chdir(original_cwd)
+        except OSError:
+            pass
 
 
 def _run_with_timeout(query: str, options: AnalyzeOptions) -> dict[str, Any]:
@@ -255,8 +265,11 @@ def _format_response(
         "stats": {
             "total": total_tweets,
             "relevant": relevant_count,
-            "graph_nodes": len((graph_result or {}).get("nodes") or []),
-            "graph_edges": len((graph_result or {}).get("edges") or []),
+            # generate_graph_data() returns counts, not the node/edge arrays
+            # (those go to the graph JSON file). Prefer the counts; fall back to
+            # array lengths only if a future path returns inline nodes/edges.
+            "graph_nodes": (graph_result or {}).get("node_count", len((graph_result or {}).get("nodes") or [])),
+            "graph_edges": (graph_result or {}).get("edge_count", len((graph_result or {}).get("edges") or [])),
         },
         "plan": {
             "core_variable": f"{query} / asset={decision.get('asset', 'unknown')}",
@@ -269,14 +282,23 @@ def _format_response(
             "lead": summary,
             "summary_lines": summary_lines or [summary],
             "rows": _ui_rows(decision, judgment, total_tweets, relevant_count, errors),
-            "events": _events_from_tweets(top_tweets),
+            "events": _events_from_judgment(judgment) or _events_from_tweets(top_tweets),
             "direction": judgment.get("market_direction_label") or "无明确方向",
-            "evidence": f"有效情报 {relevant_count} 条 / 置信度 {confidence} / 平均影响 {judgment.get('avg_impact', 0)}/5",
+            "evidence": _evidence_text(judgment, relevant_count, confidence),
             "risk": DISCLAIMER,
             "top_tweets": top_tweets[:5],
         },
         "graph": graph_result,
     }
+    if decision.get("asset") == "oil":
+        response["ai_context"] = _ai_context_for_oil(
+            query=query,
+            mode=mode,
+            decision=decision,
+            judgment=judgment,
+            top_tweets=top_tweets,
+            errors=errors,
+        )
     return response
 
 
@@ -317,7 +339,40 @@ def _ui_rows(decision: dict[str, Any], judgment: dict[str, Any], total: int, rel
     signal_count = judgment.get("signal_count") or {}
     if signal_count:
         rows.append(["信号分布", "；".join(f"{key}: {value}" for key, value in signal_count.items()), "检查方向是否集中"])
+    if judgment.get("total_score") is not None:
+        rows.append(["原油规则总分", f"{judgment['total_score']:+.2f}", "事件方向 × 强度 × 来源权重 × 置信度 × 时效权重"])
+    if judgment.get("top_factors"):
+        rows.append(["主要因子", _factor_text(judgment.get("top_factors") or []), "按绝对贡献排序"])
+    if judgment.get("war_escalation_score") is not None:
+        rows.append(["战争升级风险", f"{judgment['war_escalation_score']}/100", "口头冲突、军事部署、油轮事件、直接打击分层计分"])
+    if judgment.get("conflict_notes"):
+        rows.append(["冲突消解", "；".join(judgment["conflict_notes"][:2]), "多空信号并存时降低外推强度"])
     return rows
+
+
+def _events_from_judgment(judgment: dict[str, Any]) -> list[dict[str, Any]]:
+    events = []
+    for signal in judgment.get("top_signals") or []:
+        structured = signal.get("structured_event") or {}
+        if not signal.get("direction") and not signal.get("oil_rules"):
+            continue
+        body_parts = [
+            str(signal.get("output_template") or signal.get("impact_reason") or "").strip(),
+            str(signal.get("tweet_content") or "").replace("\n", " ")[:160],
+        ]
+        tags = [
+            str(structured.get("factor") or signal.get("factor") or "factor"),
+            str(structured.get("event_type") or signal.get("event_type") or "event"),
+            str(signal.get("source_type") or "source"),
+        ]
+        events.append(
+            {
+                "title": signal.get("direction_label") or "原油规则信号",
+                "body": " ".join(part for part in body_parts if part),
+                "tags": tags,
+            }
+        )
+    return events[:4]
 
 
 def _events_from_tweets(tweets: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -355,9 +410,51 @@ def _signals_from_judgment(judgment: dict[str, Any]) -> list[dict[str, Any]]:
                 "impact_level": signal.get("impact_level", 0),
                 "reason": signal.get("impact_reason", ""),
                 "content": signal.get("tweet_content", ""),
+                "score": signal.get("score"),
+                "factor": signal.get("factor"),
+                "event_type": signal.get("event_type"),
+                "source_type": signal.get("source_type"),
+                "rules": signal.get("oil_rules") or [],
             }
         )
     return signals
+
+
+def _evidence_text(judgment: dict[str, Any], relevant_count: int, confidence: float) -> str:
+    parts = [f"有效情报 {relevant_count} 条", f"置信度 {confidence}", f"平均影响 {judgment.get('avg_impact', 0)}/5"]
+    if judgment.get("total_score") is not None:
+        parts.append(f"规则总分 {judgment['total_score']:+.2f}")
+    if judgment.get("top_factors"):
+        parts.append(f"主要因子 {_factor_text(judgment.get('top_factors') or [])}")
+    return " / ".join(parts)
+
+
+def _factor_text(items: list[dict[str, Any]]) -> str:
+    return "；".join(
+        f"{item.get('factor')} {float(item.get('score') or 0):+.1f}"
+        for item in items[:4]
+    )
+
+
+def _ai_context_for_oil(
+    *,
+    query: str,
+    mode: str,
+    decision: dict[str, Any],
+    judgment: dict[str, Any],
+    top_tweets: list[dict[str, Any]],
+    errors: list[Any],
+) -> dict[str, Any]:
+    from deepalpha.oil_factor_rules import build_oil_ai_context
+
+    return build_oil_ai_context(
+        query=query,
+        decision=decision,
+        tweets=top_tweets,
+        judgment=judgment,
+        mode=mode,
+        errors=errors,
+    )
 
 
 def _direction_code(value: Any) -> str:
@@ -391,6 +488,12 @@ def _failure_response(query: str, error: str) -> dict[str, Any]:
         "signals": [],
         "disclaimer": DISCLAIMER,
         "mode": "error",
+        # Keep the same top-level shape as a successful response so consumers
+        # can read crawl.errors / graph.node_count / decision without KeyError
+        # on the failure path.
+        "decision": {},
+        "crawl": {"total": 0, "errors": [], "csv_path": None},
+        "graph": {"node_count": 0, "edge_count": 0, "output_file": None, "tweet_count": 0},
         "stats": {"total": 0, "relevant": 0, "graph_nodes": 0, "graph_edges": 0},
         "plan": {"core_variable": query, "time_window": "-", "sources": [], "signals": []},
         "report": {

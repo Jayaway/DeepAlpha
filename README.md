@@ -149,6 +149,112 @@ python run_v2.py "油价会涨吗？" --view-graph
 ./graph_data/关系图谱.json
 ```
 
+## X 官方 API 采集（最小接入）
+
+DeepAlpha 现在支持通过 X 官方 API v2 读取公开数据，并保存到本地 SQLite：
+
+```text
+X API / XDK
+  -> deepalpha.x_api_client
+  -> deepalpha.x_api_collector
+  -> data/deepalpha.db
+  -> /api/signals/latest
+  -> web/index.html 滚动情报流
+```
+
+安全边界：
+
+- 只做公开数据读取。
+- 不发帖、不点赞、不关注、不私信。
+- 不代表用户执行操作。
+- Token 只从环境变量读取，前端不会接触 X API Token。
+- 用户打开网页不会触发 X API 请求；网页只读取本地 `/api/signals/latest`。
+
+配置 Bearer Token：
+
+```bash
+export X_BEARER_TOKEN="你的 X Developer Bearer Token"
+```
+
+最小采集命令：
+
+```bash
+python -m deepalpha.x_api_collector --asset oil --dry-run
+python -m deepalpha.x_api_collector --asset oil --max-queries 2 --max-accounts 5 --per-query 10 --per-account 8
+```
+
+也可以指定关键词和账号：
+
+```bash
+python -m deepalpha.x_api_collector \
+  --asset oil \
+  --query '(Hormuz OR tanker OR sanction) (oil OR crude) lang:en -is:retweet' \
+  --handle Reuters \
+  --handle JavierBlas \
+  --per-query 10 \
+  --per-account 8
+```
+
+SQLite 路径：
+
+```text
+data/deepalpha.db
+```
+
+当前创建 `signals` 表，`post_id` 唯一，避免重复保存。字段包括：
+
+```text
+post_id, source, username, handle, avatar, content, posted_at, fetched_at,
+asset, direction, impact, confidence, keywords, raw_json
+```
+
+时间语义：
+
+- `posted_at` 是 X 上真实发布时间，来自官方 API 返回的 `created_at`。
+- `fetched_at` 是 DeepAlpha 抓取入库时间。
+- 如果 `posted_at` 缺失，前端显示“发布时间未知”，不会用 `fetched_at` 冒充发布时间。
+
+API 请求日志：
+
+```text
+logs/x_api_requests.jsonl
+```
+
+每条日志记录 endpoint、时间、是否成功、HTTP 状态码、返回数量、错误信息和耗时。
+
+官方文档依据：
+
+- `https://docs.x.com/llms.txt`
+- `https://docs.x.com/llms-full.txt`
+- `https://docs.x.com/x-api/posts/search-recent-posts.md`
+- `https://docs.x.com/x-api/users/get-user-by-username.md`
+- `https://docs.x.com/x-api/posts/timelines/introduction.md`
+- `https://docs.x.com/make-your-first-request.md`
+- `https://docs.x.com/xdks/python/quickstart.md`
+
+当前 REST endpoint 映射：
+
+| 功能 | 官方 endpoint |
+| --- | --- |
+| 关键词搜索 | `GET /2/tweets/search/recent` |
+| 按用户名查用户 ID | `GET /2/users/by/username/{username}` |
+| 指定账号帖子 | `GET /2/users/{id}/tweets` |
+
+官方 XDK Python 可选方法：
+
+- `Client(bearer_token="...")`
+- `client.posts.search_recent(query=..., max_results=...)`
+- `client.users.get_by_username(...)`
+
+当前代码使用标准库 HTTP 调官方 REST endpoint，避免把 XDK 作为强制依赖。后续如需迁移到 XDK，应保持同样的 SQLite 和 `/api/signals/latest` 输出结构。
+
+需要人工确认的问题：
+
+- 当前 X Developer 账号套餐是否允许 `GET /2/tweets/search/recent`。
+- 当前套餐对 `GET /2/users/{id}/tweets` 的可用额度和返回字段是否有限制。
+- `profile_image_url`、`public_metrics` 等字段是否受当前权限影响。
+- 按截图所示 pay-per-usage 计费时，每轮 `max_queries/max_accounts/per_query/per_account` 应按预算调整。
+
 ## 定时刷新与后续监听
 
 当前已有一个低频刷新脚本：

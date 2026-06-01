@@ -16,6 +16,8 @@ cookies/browser/x_cookie.json
 
 # 运行输出 / 可再生成数据
 *.csv
+data/*.db
+data/*.db-*
 抓取的信息/
 filter_output/
 tweets/
@@ -24,6 +26,9 @@ logs/
 graph_data/
 obsidian_vault/
 test_obsidian_vault/
+
+# Local editor settings
+.vscode/
 
 # C extensions
 *.so
